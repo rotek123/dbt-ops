@@ -1,0 +1,12 @@
+/target
+
+# Agents folder
+.agents/
+
+# Vscode IDE
+.vscode
+
+# macOS
+**/.DS_Store
+
+.env
