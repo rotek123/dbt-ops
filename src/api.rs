@@ -36,7 +36,7 @@ pub struct Run {
     pub status_humanized: String,
     pub job_definition_id: Option<i64>,
     pub run_steps: Option<Vec<RunStep>>,
-    pub duration: Option<i64>,
+    pub duration: Option<String>,
     pub duration_humanized: Option<String>,
     pub environment_id: Option<i64>,
     pub status_message: Option<String>,
@@ -53,7 +53,7 @@ pub struct RunStep {
     pub status_humanized: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
-    pub duration: Option<f64>,
+    pub duration: Option<String>,
     pub duration_humanized: Option<String>,
 }
 
@@ -112,5 +112,42 @@ impl ApiClient {
         
         let run = resp.data.into_iter().next().context("No runs found for job")?;
         self.get_run(run.id) // Get again to include run_steps
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_client_new() {
+        let client = ApiClient::new().expect("Failed to initialize ApiClient");
+        assert!(!client.token.is_empty(), "Token should not be empty");
+    }
+
+    #[test]
+    fn test_get_run_specific() {
+        let client = ApiClient::new().unwrap();
+        
+        // This is the specific run ID from your plan
+        let run_id = 52843050; 
+        
+        match client.get_run(run_id) {
+            Ok(run) => {
+                println!("Successfully fetched run!");
+                println!("Run ID: {}", run.id);
+                println!("Status: {}", run.status_humanized);
+                if let Some(steps) = &run.run_steps {
+                    println!("Found {} steps", steps.len());
+                } else {
+                    println!("Warning: No steps found in response!");
+                }
+            }
+            Err(e) => {
+                println!("API Request Failed!");
+                println!("Error details: {:#?}", e);
+                panic!("Test failed due to API error");
+            }
+        }
     }
 }
