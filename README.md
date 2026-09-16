@@ -51,7 +51,7 @@ To use this tool, you must have:
 
 ## Getting Started
 
-### Installation (From Source)
+### Installation (macOS / Linux)
 
 If you have [Rust and Cargo installed](https://rustup.rs/), you can easily compile and install the binary directly to your system `$PATH`:
 
@@ -63,6 +63,23 @@ cd dbt-log-tui
 cargo install --path .
 ```
 You can now run `dbt-log-tui` from anywhere on your machine.
+
+### Installation (Windows)
+
+Because this tool is built with Rust, it runs natively on Windows without needing Docker or WSL.
+
+1. **Install Rust:** Download and run `rustup-init.exe` from [rustup.rs](https://rustup.rs/). (You may also need the Microsoft C++ Build Tools if prompted during installation).
+2. **Clone the repository** (or extract the zip folder):
+   ```powershell
+   cd dbt-log-tui
+   ```
+3. **Build and Install:**
+   ```powershell
+   cargo install --path .
+   ```
+This will compile a native `dbt-log-tui.exe` and place it in your Cargo bin directory (which is automatically added to your PATH).
+
+*Note: On Windows, your dbt config file must still be located in your user directory at `%USERPROFILE%\.dbt\dbt_cloud.yml`.*
 
 ### Installation (Pre-compiled Binary)
 
