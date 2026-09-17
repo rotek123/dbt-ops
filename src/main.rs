@@ -1,9 +1,10 @@
 mod api;
 mod app;
 mod ui;
+mod list;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -20,13 +21,17 @@ use std::{
 use api::{ApiClient, Run};
 use app::App;
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct Args {
-    /// Optional Run ID. If omitted, fetches the latest run for the job.
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+
+    /// Run ID to fetch. If omitted, fetches the latest run for the job.
+    #[arg(long)]
     run_id: Option<i64>,
 
-    /// Job ID to fetch the latest run for (if run_id is omitted)
+    /// Job ID to fetch the latest run for (if --run-id is omitted)
     #[arg(short, long, default_value_t = 341099)]
     job: i64,
 
@@ -35,15 +40,42 @@ struct Args {
     interval: u64,
 }
 
+#[derive(Subcommand)]
+enum Commands {
+    /// List recent dbt runs
+    #[command(alias = "ls")]
+    List {
+        /// Number of runs to fetch
+        #[arg(short = 'n', long, default_value_t = 20)]
+        limit: u64,
+        
+        /// Job ID to filter runs by (optional)
+        #[arg(short, long)]
+        job: Option<i64>,
+    },
+}
+
 enum AppEvent {
     Tick,
     RunUpdate(Result<Run>),
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let cli = Cli::parse();
 
-    // Setup terminal
+    let api_client = ApiClient::new()?;
+
+    // Handle subcommands
+    if let Some(command) = cli.command {
+        match command {
+            Commands::List { limit, job } => {
+                list::print_runs(&api_client, limit, job)?;
+                return Ok(());
+            }
+        }
+    }
+
+    // TUI setup
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -59,7 +91,7 @@ fn main() -> Result<()> {
     }));
 
     let app = App::new();
-    let res = run_app(&mut terminal, app, args);
+    let res = run_app(&mut terminal, app, api_client, cli.run_id, cli.job, cli.interval);
 
     // Restore terminal
     disable_raw_mode()?;
@@ -80,26 +112,32 @@ fn main() -> Result<()> {
 fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
-    args: Args,
+    api_client: ApiClient,
+    opt_run_id: Option<i64>,
+    job_id: i64,
+    interval: u64,
 ) -> Result<()> {
     let (tx, rx) = mpsc::channel();
     let tick_rate = Duration::from_millis(250);
-    let poll_interval = Duration::from_secs(args.interval);
-
-    let api_client = ApiClient::new()?;
+    let poll_interval = Duration::from_secs(interval);
 
     // Polling thread
     let tx_clone = tx.clone();
+    
+    // We clone the things we need to pass into the thread
+    let api_client_clone = api_client.clone();
+    
     thread::spawn(move || {
         let mut last_poll = Instant::now() - poll_interval; // Poll immediately
-        let mut resolved_run_id = args.run_id;
+        let mut resolved_run_id = opt_run_id;
+
         
         loop {
             if last_poll.elapsed() >= poll_interval {
                 let res = if let Some(id) = resolved_run_id {
-                    api_client.get_run(id)
+                    api_client_clone.get_run(id)
                 } else {
-                    match api_client.get_latest_run(args.job) {
+                    match api_client_clone.get_latest_run(job_id) {
                         Ok(run) => {
                             resolved_run_id = Some(run.id);
                             Ok(run)

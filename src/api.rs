@@ -30,6 +30,12 @@ pub struct RunsResponse {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct Trigger {
+    pub cause_category: Option<String>,
+    pub cause_humanized: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Run {
     pub id: i64,
     pub status: i32,
@@ -40,6 +46,9 @@ pub struct Run {
     pub duration_humanized: Option<String>,
     pub environment_id: Option<i64>,
     pub status_message: Option<String>,
+    pub git_branch: Option<String>,
+    pub created_at: Option<String>,
+    pub trigger: Option<Trigger>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -57,6 +66,7 @@ pub struct RunStep {
     pub duration_humanized: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct ApiClient {
     client: Client,
     token: String,
@@ -103,15 +113,24 @@ impl ApiClient {
     }
 
     pub fn get_latest_run(&self, job_id: i64) -> Result<Run> {
-        let url = format!("{}/runs/?job_definition_id={}&order_by=-id&limit=1", self.base_url(), job_id);
+        let runs = self.list_runs(1, Some(job_id))?;
+        let run = runs.into_iter().next().context("No runs found for job")?;
+        self.get_run(run.id) // Get again to include run_steps
+    }
+
+    pub fn list_runs(&self, limit: u64, job_id: Option<i64>) -> Result<Vec<Run>> {
+        let mut url = format!("{}/runs/?order_by=-id&limit={}", self.base_url(), limit);
+        if let Some(id) = job_id {
+            url.push_str(&format!("&job_definition_id={}", id));
+        }
+
         let resp = self.client.get(&url)
             .header("Authorization", format!("Token {}", self.token))
             .send()?
             .error_for_status()?
             .json::<RunsResponse>()?;
         
-        let run = resp.data.into_iter().next().context("No runs found for job")?;
-        self.get_run(run.id) // Get again to include run_steps
+        Ok(resp.data)
     }
 }
 
