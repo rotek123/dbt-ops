@@ -90,3 +90,18 @@ fn format_age(duration: chrono::Duration) -> String {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_age() {
+        assert_eq!(format_age(chrono::Duration::seconds(45)), "45s ago");
+        assert_eq!(format_age(chrono::Duration::seconds(120)), "2m ago");
+        assert_eq!(format_age(chrono::Duration::seconds(3600)), "1h ago");
+        assert_eq!(format_age(chrono::Duration::seconds(7200)), "2h ago");
+        assert_eq!(format_age(chrono::Duration::seconds(86400)), "about 1 day ago");
+        assert_eq!(format_age(chrono::Duration::seconds(172800)), "about 2 days ago");
+    }
+}

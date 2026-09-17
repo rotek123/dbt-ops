@@ -169,4 +169,23 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_list_runs() {
+        let client = ApiClient::new().unwrap();
+        
+        match client.list_runs(5, None) {
+            Ok(runs) => {
+                assert!(runs.len() <= 5, "Should return at most 5 runs");
+                if let Some(first_run) = runs.first() {
+                    println!("First run ID: {}", first_run.id);
+                    println!("First run branch: {:?}", first_run.git_branch);
+                    // Just ensuring it deserializes correctly
+                }
+            }
+            Err(e) => {
+                panic!("API Request Failed: {:#?}", e);
+            }
+        }
+    }
 }
