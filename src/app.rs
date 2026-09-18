@@ -6,7 +6,6 @@ pub struct App {
     pub scroll_offset: u16,
     pub auto_follow: bool,
     pub should_quit: bool,
-    pub force_refresh: bool,
 }
 
 impl App {
@@ -17,7 +16,6 @@ impl App {
             scroll_offset: 0,
             auto_follow: true,
             should_quit: false,
-            force_refresh: false,
         }
     }
 

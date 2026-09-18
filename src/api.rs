@@ -31,8 +31,11 @@ pub struct RunsResponse {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Trigger {
-    pub cause_category: Option<String>,
-    pub cause_humanized: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Job {
+    pub name: Option<String>
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -42,28 +45,19 @@ pub struct Run {
     pub status_humanized: String,
     pub job_definition_id: Option<i64>,
     pub run_steps: Option<Vec<RunStep>>,
-    pub duration: Option<String>,
     pub duration_humanized: Option<String>,
     pub environment_id: Option<i64>,
-    pub status_message: Option<String>,
     pub git_branch: Option<String>,
     pub created_at: Option<String>,
-    pub trigger: Option<Trigger>,
+    pub job: Option<Job>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct RunStep {
-    pub id: i64,
-    pub run_id: i64,
     pub name: String,
     #[serde(default)]
     pub logs: String,
     pub status: i32,
-    pub status_humanized: String,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
-    pub duration: Option<String>,
-    pub duration_humanized: Option<String>,
 }
 
 #[derive(Clone)]
@@ -119,7 +113,7 @@ impl ApiClient {
     }
 
     pub fn list_runs(&self, limit: u64, job_id: Option<i64>) -> Result<Vec<Run>> {
-        let mut url = format!("{}/runs/?order_by=-id&limit={}", self.base_url(), limit);
+        let mut url = format!("{}/runs/?order_by=-id&limit={}&include_related=[\"job\"]", self.base_url(), limit);
         if let Some(id) = job_id {
             url.push_str(&format!("&job_definition_id={}", id));
         }

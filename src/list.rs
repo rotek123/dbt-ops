@@ -7,8 +7,8 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
     let runs = api_client.list_runs(limit, job_id)?;
 
     println!(
-        "{:<8} {:<12} {:<25} {:<15} {:<12} {:<10} {:<20}",
-        "STATUS", "EVENT", "BRANCH", "JOB ID", "RUN ID", "ELAPSED", "AGE"
+        "{:<8} {:<30} {:<25} {:<15} {:<12} {:<10} {:<20}",
+        "STATUS", "JOB NAME", "BRANCH", "JOB ID", "RUN ID", "ELAPSED", "AGE"
     );
 
     for run in runs {
@@ -19,9 +19,14 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
             _ => "⟳".cyan(),        // Running / Queued
         };
 
-        let event = run.trigger
-            .and_then(|t| t.cause_category)
+        let mut job_name = run.job
+            .and_then(|j| j.name)
             .unwrap_or_else(|| "unknown".to_string());
+
+        // Truncate if it's too long to prevent breaking the table alignment
+        if job_name.len() > 29 {
+            job_name = format!("{}..", &job_name[..28]);
+        }
 
         let branch = run.git_branch
             .unwrap_or_else(|| "unknown".to_string());
@@ -65,8 +70,8 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
         // Note: We use `{}       ` for status instead of `{:<8}` because ANSI color codes 
         // mess up Rust's fixed-width formatting string calculations.
         println!(
-            "{}       {:<12} {:<25} {:<15} {:<12} {:<10} {:<20}",
-            status, event, branch, job_id_str, run.id, elapsed, age
+            "{}        {:<30} {:<25} {:<15} {:<12} {:<10} {:<20}",
+            status, job_name, branch, job_id_str, run.id, elapsed, age
         );
     }
 
