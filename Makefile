@@ -27,5 +27,13 @@ run-latest: build-release ## Run the TUI (release mode) fetching the latest run 
 run-specific: build-release ## Run the TUI (release mode) against the specific run ID from the plan (52843050)
 	./target/release/dbt-log-tui 52843050
 
+fmt: ## Format the Rust codebase
+	cargo fmt --all
+
+lint: ## Run Clippy linter and fail on warnings
+	cargo clippy --all-targets --all-features -- -D warnings
+
+check: fmt lint test ## Run all checks (format, lint, test) before pushing
+
 clean: ## Clean the target directory
 	cargo clean
