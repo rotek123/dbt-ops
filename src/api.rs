@@ -30,12 +30,8 @@ pub struct RunsResponse {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Trigger {
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Job {
-    pub name: Option<String>
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -72,13 +68,24 @@ impl ApiClient {
     pub fn new() -> Result<Self> {
         let home = std::env::var("HOME").context("Could not find HOME directory")?;
         let config_path = PathBuf::from(home).join(".dbt/dbt_cloud.yml");
-        let config_str = fs::read_to_string(config_path).context("Could not read ~/.dbt/dbt_cloud.yml")?;
-        let config: DbtCloudConfig = serde_yaml::from_str(&config_str).context("Could not parse dbt_cloud.yml")?;
+        let config_str =
+            fs::read_to_string(config_path).context("Could not read ~/.dbt/dbt_cloud.yml")?;
+        let config: DbtCloudConfig =
+            serde_yaml::from_str(&config_str).context("Could not parse dbt_cloud.yml")?;
 
-        let project = config.projects.first().context("No projects found in dbt_cloud.yml")?;
+        let project = config
+            .projects
+            .first()
+            .context("No projects found in dbt_cloud.yml")?;
         let token = project.token_value.clone();
-        let account_id = project.account_id.clone().unwrap_or_else(|| "517".to_string());
-        let host = project.account_host.clone().unwrap_or_else(|| "emea.dbt.com".to_string());
+        let account_id = project
+            .account_id
+            .clone()
+            .unwrap_or_else(|| "517".to_string());
+        let host = project
+            .account_host
+            .clone()
+            .unwrap_or_else(|| "emea.dbt.com".to_string());
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -97,8 +104,14 @@ impl ApiClient {
     }
 
     pub fn get_run(&self, run_id: i64) -> Result<Run> {
-        let url = format!("{}/runs/{}/?include_related=[\"run_steps\"]", self.base_url(), run_id);
-        let resp = self.client.get(&url)
+        let url = format!(
+            "{}/runs/{}/?include_related=[\"run_steps\"]",
+            self.base_url(),
+            run_id
+        );
+        let resp = self
+            .client
+            .get(&url)
             .header("Authorization", format!("Token {}", self.token))
             .send()?
             .error_for_status()?
@@ -113,17 +126,23 @@ impl ApiClient {
     }
 
     pub fn list_runs(&self, limit: u64, job_id: Option<i64>) -> Result<Vec<Run>> {
-        let mut url = format!("{}/runs/?order_by=-id&limit={}&include_related=[\"job\"]", self.base_url(), limit);
+        let mut url = format!(
+            "{}/runs/?order_by=-id&limit={}&include_related=[\"job\"]",
+            self.base_url(),
+            limit
+        );
         if let Some(id) = job_id {
             url.push_str(&format!("&job_definition_id={}", id));
         }
 
-        let resp = self.client.get(&url)
+        let resp = self
+            .client
+            .get(&url)
             .header("Authorization", format!("Token {}", self.token))
             .send()?
             .error_for_status()?
             .json::<RunsResponse>()?;
-        
+
         Ok(resp.data)
     }
 }
@@ -141,10 +160,10 @@ mod tests {
     #[test]
     fn test_get_run_specific() {
         let client = ApiClient::new().unwrap();
-        
+
         // This is the specific run ID from your plan
-        let run_id = 52843050; 
-        
+        let run_id = 52843050;
+
         match client.get_run(run_id) {
             Ok(run) => {
                 println!("Successfully fetched run!");
@@ -167,7 +186,7 @@ mod tests {
     #[test]
     fn test_list_runs() {
         let client = ApiClient::new().unwrap();
-        
+
         match client.list_runs(5, None) {
             Ok(runs) => {
                 assert!(runs.len() <= 5, "Should return at most 5 runs");

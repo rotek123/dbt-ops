@@ -1,16 +1,16 @@
 mod api;
 mod app;
-mod ui;
 mod list;
+mod ui;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::{
     io,
     sync::mpsc,
@@ -48,7 +48,7 @@ enum Commands {
         /// Number of runs to fetch
         #[arg(short = 'n', long, default_value_t = 20)]
         limit: u64,
-        
+
         /// Job ID to filter runs by (optional)
         #[arg(short, long)]
         job: Option<i64>,
@@ -91,7 +91,14 @@ fn main() -> Result<()> {
     }));
 
     let app = App::new();
-    let res = run_app(&mut terminal, app, api_client, cli.run_id, cli.job, cli.interval);
+    let res = run_app(
+        &mut terminal,
+        app,
+        api_client,
+        cli.run_id,
+        cli.job,
+        cli.interval,
+    );
 
     // Restore terminal
     disable_raw_mode()?;
@@ -123,15 +130,14 @@ fn run_app<B: ratatui::backend::Backend>(
 
     // Polling thread
     let tx_clone = tx.clone();
-    
+
     // We clone the things we need to pass into the thread
     let api_client_clone = api_client.clone();
-    
+
     thread::spawn(move || {
         let mut last_poll = Instant::now() - poll_interval; // Poll immediately
         let mut resolved_run_id = opt_run_id;
 
-        
         loop {
             if last_poll.elapsed() >= poll_interval {
                 let res = if let Some(id) = resolved_run_id {
@@ -155,7 +161,7 @@ fn run_app<B: ratatui::backend::Backend>(
                     break;
                 }
                 last_poll = Instant::now();
-                
+
                 if is_terminal {
                     break;
                 }
@@ -195,25 +201,25 @@ fn run_app<B: ratatui::backend::Backend>(
             }
         }
 
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-                    app.should_quit = true;
-                    continue;
-                }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                app.should_quit = true;
+                continue;
+            }
 
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-                    KeyCode::Tab => app.next_step(),
-                    KeyCode::BackTab => app.prev_step(),
-                    KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
-                    KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
-                    KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
-                    KeyCode::Char('r') => {
-                        // Force refresh not implemented for now since we have interval polling
-                    }
-                    _ => {}
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+                KeyCode::Tab => app.next_step(),
+                KeyCode::BackTab => app.prev_step(),
+                KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
+                KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
+                KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
+                KeyCode::Char('r') => {
+                    // Force refresh not implemented for now since we have interval polling
                 }
+                _ => {}
             }
         }
     }

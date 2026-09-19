@@ -13,13 +13,14 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
 
     for run in runs {
         let status = match run.status {
-            10 => "✓".green(),      // Success
-            20 => "X".red(),        // Error
-            30 => "⨯".yellow(),     // Cancelled
-            _ => "⟳".cyan(),        // Running / Queued
+            10 => "✓".green(),  // Success
+            20 => "X".red(),    // Error
+            30 => "⨯".yellow(), // Cancelled
+            _ => "⟳".cyan(),    // Running / Queued
         };
 
-        let mut job_name = run.job
+        let mut job_name = run
+            .job
             .and_then(|j| j.name)
             .unwrap_or_else(|| "unknown".to_string());
 
@@ -28,22 +29,21 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
             job_name = format!("{}..", &job_name[..28]);
         }
 
-        let branch = run.git_branch
-            .unwrap_or_else(|| "unknown".to_string());
-            
+        let branch = run.git_branch.unwrap_or_else(|| "unknown".to_string());
+
         let branch = if branch.len() > 23 {
             format!("{}..", &branch[..21])
         } else {
             branch
         };
 
-        let job_id_str = run.job_definition_id
+        let job_id_str = run
+            .job_definition_id
             .map(|id| id.to_string())
             .unwrap_or_else(|| "-".to_string());
 
-        let elapsed = run.duration_humanized
-            .unwrap_or_else(|| "-".to_string());
-            
+        let elapsed = run.duration_humanized.unwrap_or_else(|| "-".to_string());
+
         // Shorten "23 minutes, 56 seconds" -> "23m 56s"
         let elapsed = elapsed
             .replace(" minutes", "m")
@@ -67,7 +67,7 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
             None => "-".to_string(),
         };
 
-        // Note: We use `{}       ` for status instead of `{:<8}` because ANSI color codes 
+        // Note: We use `{}       ` for status instead of `{:<8}` because ANSI color codes
         // mess up Rust's fixed-width formatting string calculations.
         println!(
             "{}        {:<30} {:<25} {:<15} {:<12} {:<10} {:<20}",
@@ -106,7 +106,13 @@ mod tests {
         assert_eq!(format_age(chrono::Duration::seconds(120)), "2m ago");
         assert_eq!(format_age(chrono::Duration::seconds(3600)), "1h ago");
         assert_eq!(format_age(chrono::Duration::seconds(7200)), "2h ago");
-        assert_eq!(format_age(chrono::Duration::seconds(86400)), "about 1 day ago");
-        assert_eq!(format_age(chrono::Duration::seconds(172800)), "about 2 days ago");
+        assert_eq!(
+            format_age(chrono::Duration::seconds(86400)),
+            "about 1 day ago"
+        );
+        assert_eq!(
+            format_age(chrono::Duration::seconds(172800)),
+            "about 2 days ago"
+        );
     }
 }
