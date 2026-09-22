@@ -124,13 +124,13 @@ fn render_logs(f: &mut Frame, app: &mut App, area: Rect) {
     let block = Block::default().title(" Logs ").borders(Borders::ALL);
     let paragraph = Paragraph::new(log_text)
         .block(block)
-        .scroll((app.scroll_offset, 0));
+        .scroll((app.scroll_offset, app.h_scroll_offset));
 
     f.render_widget(paragraph, area);
 }
 
 fn render_footer(f: &mut Frame, area: Rect) {
-    let footer_text = " q/Esc: Quit | Tab/Shift+Tab: Switch Step | ↑/↓: Scroll Logs | G: Jump to Bottom | r: Refresh Now ";
+    let footer_text = " q/Esc: Quit | Tab: Switch Step | hjkl/Arrows: Scroll | H: Jump to Top | G: Jump to Bottom | r: Refresh Now ";
     let block = Block::default().borders(Borders::ALL);
     let paragraph = Paragraph::new(footer_text)
         .block(block)

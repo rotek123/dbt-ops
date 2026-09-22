@@ -4,6 +4,7 @@ pub struct App {
     pub run: Option<Run>,
     pub selected_step_idx: usize,
     pub scroll_offset: u16,
+    pub h_scroll_offset: u16,
     pub auto_follow: bool,
     pub should_quit: bool,
 }
@@ -14,6 +15,7 @@ impl App {
             run: None,
             selected_step_idx: 0,
             scroll_offset: 0,
+            h_scroll_offset: 0,
             auto_follow: true,
             should_quit: false,
         }
@@ -67,12 +69,26 @@ impl App {
         self.auto_follow = false;
     }
 
+    pub fn scroll_right(&mut self) {
+        self.h_scroll_offset = self.h_scroll_offset.saturating_add(2);
+    }
+
+    pub fn scroll_left(&mut self) {
+        self.h_scroll_offset = self.h_scroll_offset.saturating_sub(2);
+    }
+
+    pub fn jump_to_top(&mut self) {
+        self.scroll_offset = 0;
+        self.auto_follow = false;
+    }
+
     pub fn jump_to_bottom(&mut self) {
         self.auto_follow = true;
     }
 
     pub fn reset_scroll(&mut self) {
         self.scroll_offset = 0;
+        self.h_scroll_offset = 0;
         self.auto_follow = true;
     }
 }

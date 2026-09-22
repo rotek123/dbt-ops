@@ -217,7 +217,10 @@ fn run_app<B: ratatui::backend::Backend>(
                 KeyCode::BackTab => app.prev_step(),
                 KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
                 KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
+                KeyCode::Left | KeyCode::Char('h') => app.scroll_left(),
+                KeyCode::Right | KeyCode::Char('l') => app.scroll_right(),
                 KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
+                KeyCode::Char('H') | KeyCode::Home => app.jump_to_top(),
                 KeyCode::Char('r') => {
                     // Force refresh not implemented for now since we have interval polling
                 }
