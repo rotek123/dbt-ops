@@ -25,6 +25,11 @@ pub struct RunResponse {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct Trigger {
+    pub github_pull_request_id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct RunsResponse {
     pub data: Vec<Run>,
 }
@@ -46,6 +51,7 @@ pub struct Run {
     pub git_branch: Option<String>,
     pub created_at: Option<String>,
     pub job: Option<Job>,
+    pub trigger: Option<Trigger>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -62,6 +68,7 @@ pub struct ApiClient {
     token: String,
     account_id: String,
     host: String,
+    pub repo_url: Option<String>,
 }
 
 impl ApiClient {
@@ -91,11 +98,32 @@ impl ApiClient {
             .timeout(std::time::Duration::from_secs(10))
             .build()?;
 
+        // Attempt to fetch the repository URL from the projects endpoint
+        let mut repo_url = None;
+        let projects_url = format!("https://{}/api/v2/accounts/{}/projects/", host, account_id);
+
+        if let Ok(resp) = client
+            .get(&projects_url)
+            .header("Authorization", format!("Token {}", token))
+            .send()
+            && let Ok(json) = resp.json::<serde_json::Value>()
+        {
+            repo_url = json
+                .get("data")
+                .and_then(|d| d.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|proj| proj.get("repository"))
+                .and_then(|repo| repo.get("web_url"))
+                .and_then(|url| url.as_str())
+                .map(|s| s.to_string());
+        }
+
         Ok(Self {
             client,
             token,
             account_id,
             host,
+            repo_url,
         })
     }
 
@@ -127,7 +155,7 @@ impl ApiClient {
 
     pub fn list_runs(&self, limit: u64, job_id: Option<i64>) -> Result<Vec<Run>> {
         let mut url = format!(
-            "{}/runs/?order_by=-id&limit={}&include_related=[\"job\"]",
+            "{}/runs/?order_by=-id&limit={}&include_related=[\"job\",\"trigger\"]",
             self.base_url(),
             limit
         );

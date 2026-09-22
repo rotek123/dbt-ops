@@ -7,8 +7,8 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
     let runs = api_client.list_runs(limit, job_id)?;
 
     println!(
-        "{:<8} {:<30} {:<25} {:<15} {:<12} {:<10} {:<20}",
-        "STATUS", "JOB NAME", "BRANCH", "JOB ID", "RUN ID", "ELAPSED", "AGE"
+        "{:<8} {:<30} {:<25} {:<10} {:<15} {:<12} {:<10} {:<20}",
+        "STATUS", "JOB NAME", "BRANCH", "PR", "JOB ID", "RUN ID", "ELAPSED", "AGE"
     );
 
     for run in runs {
@@ -36,6 +36,32 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
         } else {
             branch
         };
+
+        let (pr_display_str, pr_visual_len) =
+            match run.trigger.as_ref().and_then(|t| t.github_pull_request_id) {
+                Some(pr_id) => {
+                    let text = format!("#{}", pr_id);
+                    let v_len = text.len();
+                    if let Some(repo_url) = &api_client.repo_url {
+                        // OSC8 Hyperlink
+                        (
+                            format!(
+                                "\x1b]8;;{}/pull/{}\x1b\\{}\x1b]8;;\x1b\\",
+                                repo_url, pr_id, text
+                            ),
+                            v_len,
+                        )
+                    } else {
+                        (text, v_len)
+                    }
+                }
+                None => ("-".to_string(), 1),
+            };
+        let pr_padded = format!(
+            "{}{}",
+            pr_display_str,
+            " ".repeat(10usize.saturating_sub(pr_visual_len))
+        );
 
         let job_id_str = run
             .job_definition_id
@@ -67,11 +93,10 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
             None => "-".to_string(),
         };
 
-        // Note: We use `{}       ` for status instead of `{:<8}` because ANSI color codes
-        // mess up Rust's fixed-width formatting string calculations.
+        // Note: We use `{}` and manual padding for columns with ANSI/OSC8 escape codes
         println!(
-            "{}        {:<30} {:<25} {:<15} {:<12} {:<10} {:<20}",
-            status, job_name, branch, job_id_str, run.id, elapsed, age
+            "{}        {:<30} {:<25} {} {:<15} {:<12} {:<10} {:<20}",
+            status, job_name, branch, pr_padded, job_id_str, run.id, elapsed, age
         );
     }
 

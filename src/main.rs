@@ -57,7 +57,7 @@ enum Commands {
 
 enum AppEvent {
     Tick,
-    RunUpdate(Result<Run>),
+    RunUpdate(Box<Result<Run>>),
 }
 
 fn main() -> Result<()> {
@@ -157,7 +157,7 @@ fn run_app<B: ratatui::backend::Backend>(
                     Err(_) => false,
                 };
 
-                if tx_clone.send(AppEvent::RunUpdate(res)).is_err() {
+                if tx_clone.send(AppEvent::RunUpdate(Box::new(res))).is_err() {
                     break;
                 }
                 last_poll = Instant::now();
@@ -191,12 +191,14 @@ fn run_app<B: ratatui::backend::Backend>(
         // Handle events
         while let Ok(evt) = rx.try_recv() {
             match evt {
-                AppEvent::RunUpdate(Ok(run)) => {
-                    app.update_run(run);
-                }
-                AppEvent::RunUpdate(Err(_e)) => {
-                    // Ignore errors for now, or display them in UI
-                }
+                AppEvent::RunUpdate(boxed_res) => match *boxed_res {
+                    Ok(run) => {
+                        app.update_run(run);
+                    }
+                    Err(_e) => {
+                        // Ignore errors for now, or display them in UI
+                    }
+                },
                 AppEvent::Tick => {}
             }
         }
