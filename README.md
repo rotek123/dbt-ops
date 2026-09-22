@@ -57,12 +57,12 @@ If you have [Rust and Cargo installed](https://rustup.rs/), you can easily compi
 
 ```bash
 # Clone the repository (or extract the zip)
-cd dbt-log-tui
+cd dbt-ops
 
 # Install the binary globally
 cargo install --path .
 ```
-You can now run `dbt-log-tui` from anywhere on your machine.
+You can now run `dbt-ops` from anywhere on your machine.
 
 ### Installation (Windows)
 
@@ -71,33 +71,33 @@ Because this tool is built with Rust, it runs natively on Windows without needin
 1. **Install Rust:** Download and run `rustup-init.exe` from [rustup.rs](https://rustup.rs/). (You may also need the Microsoft C++ Build Tools if prompted during installation).
 2. **Clone the repository** (or extract the zip folder):
    ```powershell
-   cd dbt-log-tui
+   cd dbt-ops
    ```
 3. **Build and Install:**
    ```powershell
    cargo install --path .
    ```
-This will compile a native `dbt-log-tui.exe` and place it in your Cargo bin directory (which is automatically added to your PATH).
+This will compile a native `dbt-ops.exe` and place it in your Cargo bin directory (which is automatically added to your PATH).
 
 *Note: On Windows, your dbt config file must still be located in your user directory at `%USERPROFILE%\.dbt\dbt_cloud.yml`.*
 
 ### Installation (Pre-compiled Binary)
 
 If you were given a pre-compiled binary for your architecture (e.g., Apple Silicon):
-1. Extract the `dbt-log-tui` executable.
-2. Move it to a directory on your `$PATH` (e.g., `sudo mv dbt-log-tui /usr/local/bin/`).
-3. Ensure it is executable (`chmod +x /usr/local/bin/dbt-log-tui`).
+1. Extract the `dbt-ops` executable.
+2. Move it to a directory on your `$PATH` (e.g., `sudo mv dbt-ops /usr/local/bin/`).
+3. Ensure it is executable (`chmod +x /usr/local/bin/dbt-ops`).
 
 ## Usage
 
 Run the TUI without any arguments to automatically connect to the **latest run of the default job**:
 ```bash
-dbt-log-tui
+dbt-ops
 ```
 
 If you want to attach to a **specific run ID**, pass it as the first argument:
 ```bash
-dbt-log-tui 52843050
+dbt-ops 52843050
 ```
 
 ### Keybindings

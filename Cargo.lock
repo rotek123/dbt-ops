@@ -389,7 +389,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbt-log-tui"
+name = "dbt-ops"
 version = "0.4.0"
 dependencies = [
  "ansi-to-tui",

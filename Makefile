@@ -22,10 +22,10 @@ run: ## Run the TUI (debug mode) fetching the latest run for the default job
 	cargo run
 
 run-latest: build-release ## Run the TUI (release mode) fetching the latest run for the default job
-	./target/release/dbt-log-tui
+	./target/release/dbt-ops
 
 run-specific: build-release ## Run the TUI (release mode) against the specific run ID from the plan (52843050)
-	./target/release/dbt-log-tui 52843050
+	./target/release/dbt-ops 52843050
 
 fmt: ## Format the Rust codebase
 	cargo fmt --all
