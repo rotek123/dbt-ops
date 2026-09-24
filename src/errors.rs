@@ -273,17 +273,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_extract_log_errors() {
+    fn test_extract_log_errors_compilation() {
         let raw_logs = r#"
 09:49:43      INFO      Started model     dbt_cloud_pr_123_test_schema.fct_sales
 09:49:43   ERROR        Error [JinjaError (dbt1501)]: Error executing materialization macro 'dbt_bigquery.materialization_incremental_bigquery' for model model.my_project.fct_sales: Failed to eval the compiled Jinja expression invalid operation: Compilation Error for model.my_project.fct_sales from models/marts/fct_sales.sql: This model has an enforced contract that failed.
-                                  Please ensure the name, data_type, and number of columns in your contract match the columns in your model's definition.
-                                 
-                                 |               column_name | definition_type | contract_type |     mismatch_reason |
-                                 | ------------------------- | --------------- | ------------- | ------------------- |
-                                 | is_first_purchase       | BOOLEAN         |               | missing in contract |
-                                 
-                                 (in run/my_project/models/marts/fct_sales.sql)
+                                Please ensure the name, data_type, and number of columns in your contract match the columns in your model's definition.
+                                
+                                |               column_name | definition_type | contract_type |     mismatch_reason |
+                                | ------------------------- | --------------- | ------------- | ------------------- |
+                                | is_first_purchase         | BOOLEAN         |               | missing in contract |
+                                
+                                (in run/my_project/models/marts/fct_sales.sql)
 09:49:43      INFO      Skipped model
 "#;
 
@@ -291,5 +291,54 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("This model has an enforced contract that failed"));
         assert!(errors[0].contains("is_first_purchase"));
+    }
+
+    #[test]
+    fn test_extract_log_errors_unit_test() {
+        let raw_logs = r#"
+12:09:43      INFO       Started unit test intermediate.test_int_orders__dedup_keeps_latest (unit)
+12:09:43      INFO       Failed [   1.42s] unit test intermediate.test_int_orders__dedup_keeps_latest (unit)
+        Test failed test_int_orders__dedup_keeps_latest
+        +-------------+-------------+
+        | order_id    | total_amt   |
+        +-------------+-------------+
+        | ord1 -> ∅   | 150 -> ∅    |
+        | ord2 -> ∅   | 200 -> ∅    |
+        +-------------+-------------+
+        2 row(s) differ.
+        Expected 2 row(s), got 0 row(s).
+12:09:44      INFO      Finished running...
+"#;
+
+        let errors = extract_log_errors(raw_logs);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains(
+            "Failed [   1.42s] unit test intermediate.test_int_orders__dedup_keeps_latest"
+        ));
+        assert!(errors[0].contains("ord1 -> ∅"));
+        assert!(!errors[0].contains("Finished running"));
+    }
+
+    #[test]
+    fn test_extract_log_errors_lint() {
+        let raw_logs = r#"
+    Started linting (1 items)
+    Finished [  0.02s] linting (1 items)
+
+=================== Errors and Warnings ====================
+[error] [DependencyNotFound (dbt1048)]: Ref 'fct_sales_terms' not found in project. Searched for 'my_project.fct_sales_terms'
+    --> models/marts/sales/fct_subscriptions.sql:2:6
+
+==================== Execution Summary =====================
+Finished 'lint' with 1 error for target 'ci' [1.4s]
+"#;
+
+        let errors = extract_log_errors(raw_logs);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains(
+            "[error] [DependencyNotFound (dbt1048)]: Ref 'fct_sales_terms' not found in project."
+        ));
+        assert!(errors[0].contains("models/marts/sales/fct_subscriptions.sql:2:6"));
+        assert!(!errors[0].contains("Execution Summary"));
     }
 }
