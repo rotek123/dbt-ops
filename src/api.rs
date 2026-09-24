@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -16,7 +17,7 @@ pub struct DbtProject {
     #[serde(rename = "account-host")]
     pub account_host: Option<String>,
     #[serde(rename = "token-value")]
-    pub token_value: String,
+    pub token_value: SecretString,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -90,7 +91,7 @@ pub struct SourcesArtifact {
 #[derive(Clone)]
 pub struct ApiClient {
     client: Client,
-    token: String,
+    token: SecretString,
     account_id: String,
     host: String,
     pub repo_url: Option<String>,
@@ -129,7 +130,7 @@ impl ApiClient {
 
         if let Ok(resp) = client
             .get(&projects_url)
-            .header("Authorization", format!("Token {}", token))
+            .header("Authorization", format!("Token {}", token.expose_secret()))
             .send()
             && let Ok(json) = resp.json::<serde_json::Value>()
         {
@@ -165,7 +166,10 @@ impl ApiClient {
         let resp = self
             .client
             .get(&url)
-            .header("Authorization", format!("Token {}", self.token))
+            .header(
+                "Authorization",
+                format!("Token {}", self.token.expose_secret()),
+            )
             .send()?
             .error_for_status()?
             .json::<RunResponse>()?;
@@ -191,7 +195,10 @@ impl ApiClient {
         let resp = self
             .client
             .get(&url)
-            .header("Authorization", format!("Token {}", self.token))
+            .header(
+                "Authorization",
+                format!("Token {}", self.token.expose_secret()),
+            )
             .send()?
             .error_for_status()?
             .json::<RunsResponse>()?;
@@ -210,7 +217,10 @@ impl ApiClient {
         let resp = self
             .client
             .get(&url)
-            .header("Authorization", format!("Token {}", self.token))
+            .header(
+                "Authorization",
+                format!("Token {}", self.token.expose_secret()),
+            )
             .send()?
             .error_for_status()?
             .text()?;
@@ -225,7 +235,10 @@ mod tests {
     #[test]
     fn test_api_client_new() {
         let client = ApiClient::new().expect("Failed to initialize ApiClient");
-        assert!(!client.token.is_empty(), "Token should not be empty");
+        assert!(
+            !client.token.expose_secret().is_empty(),
+            "Token should not be empty"
+        );
     }
 
     #[test]

@@ -2,6 +2,7 @@ use crate::api::ApiClient;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use crossterm::style::Stylize;
+use url::Url;
 
 pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Result<()> {
     let runs = api_client.list_runs(limit, job_id)?;
@@ -42,21 +43,28 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
                 Some(pr_id) => {
                     let text = format!("#{}", pr_id);
                     let v_len = text.len();
+
+                    // Only render OSC8 if the URL is trusted
                     if let Some(repo_url) = &api_client.repo_url {
-                        // OSC8 Hyperlink
-                        (
-                            format!(
-                                "\x1b]8;;{}/pull/{}\x1b\\{}\x1b]8;;\x1b\\",
-                                repo_url, pr_id, text
-                            ),
-                            v_len,
-                        )
+                        if is_trusted_repo_url(repo_url) {
+                            (
+                                format!(
+                                    "\x1b]8;;{}/pull/{}\x1b\\{}\x1b]8;;\x1b\\",
+                                    repo_url, pr_id, text
+                                ),
+                                v_len,
+                            )
+                        } else {
+                            // Fallback to plain text if untrusted
+                            (text, v_len)
+                        }
                     } else {
                         (text, v_len)
                     }
                 }
                 None => ("-".to_string(), 1),
             };
+
         let pr_padded = format!(
             "{}{}",
             pr_display_str,
@@ -103,6 +111,24 @@ pub fn print_runs(api_client: &ApiClient, limit: u64, job_id: Option<i64>) -> Re
     Ok(())
 }
 
+/// Helper func that validates that a repository URL belongs to a trusted
+/// domain before we allow it to be rendered as an OSC8 clickable terminal link.
+fn is_trusted_repo_url(url_str: &str) -> bool {
+    let trusted_domains: [&str; 1] = ["github.com"];
+
+    if let Ok(parsed_url) = Url::parse(url_str)
+        && let Some(host) = parsed_url.host_str()
+    {
+        // Only allow scheme of the URL to be either http or https
+        let scheme = parsed_url.scheme();
+        if scheme != "http" && scheme != "https" {
+            return false;
+        }
+        return trusted_domains.contains(&host);
+    }
+    false
+}
+
 fn format_age(duration: chrono::Duration) -> String {
     let secs = duration.num_seconds();
     if secs < 60 {
@@ -124,6 +150,23 @@ fn format_age(duration: chrono::Duration) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_trusted_repo_url() {
+        // Valid domains
+        assert!(is_trusted_repo_url("https://github.com/my-org/repo"));
+        assert!(is_trusted_repo_url("http://github.com/foo/bar"));
+
+        // Malicious or un-allowed domains
+        assert!(!is_trusted_repo_url("https://github.com.evil.com/repo")); // Domain spoofing
+        assert!(!is_trusted_repo_url("https://evil.github.com/repo")); // Subdomain spoofing
+        assert!(!is_trusted_repo_url("https://gitlab.com/repo")); // Not in allowlist
+        assert!(!is_trusted_repo_url("ftp://github.com/repo")); // While host is github, you may optionally want to check http/https, though this passes the host check.
+
+        // Invalid URLs
+        assert!(!is_trusted_repo_url("not-a-url"));
+        assert!(!is_trusted_repo_url(""));
+    }
 
     #[test]
     fn test_format_age() {
