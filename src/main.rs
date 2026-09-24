@@ -1,5 +1,6 @@
 mod api;
 mod app;
+mod errors;
 mod list;
 mod ui;
 
@@ -53,6 +54,21 @@ enum Commands {
         #[arg(short, long)]
         job: Option<i64>,
     },
+
+    /// Fetch and analyze errors or warnings for a specific run
+    Errors {
+        /// The Run ID to analyze
+        #[arg(long)]
+        run_id: i64,
+
+        /// Include warnings in the output alongside errors
+        #[arg(long)]
+        include_warnings: bool,
+
+        /// Only show warnings (ignore errors)
+        #[arg(long)]
+        warnings_only: bool,
+    },
 }
 
 enum AppEvent {
@@ -70,6 +86,14 @@ fn main() -> Result<()> {
         match command {
             Commands::List { limit, job } => {
                 list::print_runs(&api_client, limit, job)?;
+                return Ok(());
+            }
+            Commands::Errors {
+                run_id,
+                include_warnings,
+                warnings_only,
+            } => {
+                errors::print_run_errors(&api_client, run_id, include_warnings, warnings_only)?;
                 return Ok(());
             }
         }

@@ -98,12 +98,13 @@ fn render_logs(f: &mut Frame, app: &mut App, area: Rect) {
         && let Some(steps) = &run.run_steps
         && let Some(step) = steps.get(app.selected_step_idx)
     {
-        if !step.logs.is_empty() {
-            let logs_bytes = step.logs.as_bytes();
+        let logs_str = step.logs.as_deref().unwrap_or("");
+        if !logs_str.is_empty() {
+            let logs_bytes = logs_str.as_bytes();
             if let Ok(parsed_text) = logs_bytes.into_text() {
                 log_text = parsed_text;
             } else {
-                log_text = Text::raw(&step.logs);
+                log_text = Text::raw(logs_str);
             }
         } else {
             log_text = Text::raw("Waiting for logs...");

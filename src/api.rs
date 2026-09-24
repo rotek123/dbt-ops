@@ -56,10 +56,35 @@ pub struct Run {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct RunStep {
+    pub index: i32,
     pub name: String,
-    #[serde(default)]
-    pub logs: String,
+
+    pub logs: Option<String>,
     pub status: i32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ArtifactResult {
+    pub status: String,
+    pub unique_id: String,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RunResultsArtifact {
+    pub results: Vec<ArtifactResult>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SourceResult {
+    pub status: String,
+    pub unique_id: String,
+    pub max_loaded_at_time_ago_in_s: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SourcesArtifact {
+    pub results: Vec<SourceResult>,
 }
 
 #[derive(Clone)]
@@ -173,6 +198,24 @@ impl ApiClient {
 
         Ok(resp.data)
     }
+
+    pub fn get_artifact(&self, run_id: i64, step: i32, path: &str) -> Result<String> {
+        let url = format!(
+            "{}/runs/{}/artifacts/{}?step={}",
+            self.base_url(),
+            run_id,
+            path,
+            step
+        );
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Token {}", self.token))
+            .send()?
+            .error_for_status()?
+            .text()?;
+        Ok(resp)
+    }
 }
 
 #[cfg(test)]
@@ -183,6 +226,59 @@ mod tests {
     fn test_api_client_new() {
         let client = ApiClient::new().expect("Failed to initialize ApiClient");
         assert!(!client.token.is_empty(), "Token should not be empty");
+    }
+
+    #[test]
+    fn test_run_results_deserialization() {
+        // Strict unit test to ensure our Rust structs correctly match the dbt JSON schema
+        let raw_json = r#"{
+            "results": [
+                {
+                    "status": "error",
+                    "unique_id": "model.project.my_model",
+                    "message": "BigQuery adapter error"
+                },
+                {
+                    "status": "warn",
+                    "unique_id": "model.project.other_model",
+                    "message": null
+                }
+            ]
+        }"#;
+
+        let artifact: RunResultsArtifact = serde_json::from_str(raw_json).unwrap();
+        assert_eq!(artifact.results.len(), 2);
+
+        let first = &artifact.results[0];
+        assert_eq!(first.status, "error");
+        assert_eq!(first.unique_id, "model.project.my_model");
+        assert_eq!(first.message.as_deref(), Some("BigQuery adapter error"));
+
+        let second = &artifact.results[1];
+        assert_eq!(second.status, "warn");
+        assert_eq!(second.message, None);
+    }
+
+    #[test]
+    fn test_sources_deserialization() {
+        // Strict unit test for the sources.json freshness schema
+        let raw_json = r#"{
+            "results": [
+                {
+                    "status": "error",
+                    "unique_id": "source.project.raw_events",
+                    "max_loaded_at_time_ago_in_s": 259200.0
+                }
+            ]
+        }"#;
+
+        let artifact: SourcesArtifact = serde_json::from_str(raw_json).unwrap();
+        assert_eq!(artifact.results.len(), 1);
+
+        let first = &artifact.results[0];
+        assert_eq!(first.status, "error");
+        assert_eq!(first.unique_id, "source.project.raw_events");
+        assert_eq!(first.max_loaded_at_time_ago_in_s, Some(259200.0));
     }
 
     #[test]
