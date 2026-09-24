@@ -1,4 +1,4 @@
-.PHONY: help build build-release test run run-latest run-specific clean
+.PHONY: help build build-release test run run-latest clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -18,14 +18,11 @@ build-release: ## Build the project in release mode
 test: ## Run tests
 	cargo test
 
-run: ## Run the TUI (debug mode) fetching the latest run for the default job
-	cargo run
+run: ## Run the CLI in debug mode (e.g., make run ARGS="list" or make run ARGS="--job 123")
+	cargo run -- $(ARGS)
 
-run-latest: build-release ## Run the TUI (release mode) fetching the latest run for the default job
-	./target/release/dbt-ops
-
-run-specific: build-release ## Run the TUI (release mode) against the specific run ID from the plan (52843050)
-	./target/release/dbt-ops 52843050
+run-latest: build-release ## Run the CLI in release mode (e.g., make run-latest ARGS="--job 123")
+	./target/release/dbt-ops $(ARGS)
 
 fmt: ## Format the Rust codebase
 	cargo fmt --all

@@ -22,18 +22,18 @@ use api::{ApiClient, Run};
 use app::App;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Run ID to fetch. If omitted, fetches the latest run for the job.
+    /// Launch the TUI to watch a specific Run ID (you can find Run IDs using the 'list' command)
     #[arg(long)]
     run_id: Option<i64>,
 
-    /// Job ID to fetch the latest run for (if --run-id is omitted)
-    #[arg(short, long, default_value_t = 341099)]
-    job: i64,
+    /// Launch the TUI to watch the latest run for a specific Job ID
+    #[arg(short, long)]
+    job: Option<i64>,
 
     /// Polling interval in seconds
     #[arg(short, long, default_value_t = 3)]
@@ -42,7 +42,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// List recent dbt runs
+    /// List recent dbt runs (alias: ls)
     #[command(alias = "ls")]
     List {
         /// Number of runs to fetch
@@ -73,6 +73,10 @@ fn main() -> Result<()> {
                 return Ok(());
             }
         }
+    } else if cli.run_id.is_none() && cli.job.is_none() {
+        // Fallback safety (clap arg_required_else_help usually catches this unless user passes just --interval)
+        eprintln!("Error: You must specify either --run-id or --job to launch the TUI log viewer.");
+        std::process::exit(1);
     }
 
     // TUI setup
@@ -121,7 +125,7 @@ fn run_app<B: ratatui::backend::Backend>(
     mut app: App,
     api_client: ApiClient,
     opt_run_id: Option<i64>,
-    job_id: i64,
+    opt_job_id: Option<i64>,
     interval: u64,
 ) -> Result<()> {
     let (tx, rx) = mpsc::channel();
@@ -142,14 +146,16 @@ fn run_app<B: ratatui::backend::Backend>(
             if last_poll.elapsed() >= poll_interval {
                 let res = if let Some(id) = resolved_run_id {
                     api_client_clone.get_run(id)
-                } else {
-                    match api_client_clone.get_latest_run(job_id) {
+                } else if let Some(j_id) = opt_job_id {
+                    match api_client_clone.get_latest_run(j_id) {
                         Ok(run) => {
                             resolved_run_id = Some(run.id);
                             Ok(run)
                         }
                         Err(e) => Err(e),
                     }
+                } else {
+                    Err(anyhow::anyhow!("Neither run_id nor job_id was provided"))
                 };
 
                 let is_terminal = match &res {
