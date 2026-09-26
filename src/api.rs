@@ -59,8 +59,9 @@ pub struct Run {
 pub struct RunStep {
     pub index: i32,
     pub name: String,
-
     pub logs: Option<String>,
+    pub debug_logs: Option<String>,
+    pub truncated_debug_logs: Option<String>,
     pub status: i32,
 }
 

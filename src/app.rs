@@ -1,5 +1,11 @@
 use crate::api::Run;
 
+#[derive(PartialEq)]
+pub enum LogMode {
+    Info,
+    Debug,
+}
+
 pub struct App {
     pub run: Option<Run>,
     pub selected_step_idx: usize,
@@ -7,6 +13,7 @@ pub struct App {
     pub h_scroll_offset: u16,
     pub auto_follow: bool,
     pub should_quit: bool,
+    pub log_mode: LogMode,
 }
 
 impl App {
@@ -18,6 +25,7 @@ impl App {
             h_scroll_offset: 0,
             auto_follow: true,
             should_quit: false,
+            log_mode: LogMode::Info,
         }
     }
 
@@ -90,5 +98,13 @@ impl App {
         self.scroll_offset = 0;
         self.h_scroll_offset = 0;
         self.auto_follow = true;
+    }
+
+    pub fn toggle_log_mode(&mut self) {
+        if self.log_mode == LogMode::Info {
+            self.log_mode = LogMode::Debug;
+        } else {
+            self.log_mode = LogMode::Info;
+        }
     }
 }
