@@ -68,12 +68,12 @@ impl App {
         }
     }
 
-    pub fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(1);
+    pub fn scroll_down(&mut self, amount: u16) {
+        self.scroll_offset = self.scroll_offset.saturating_add(amount);
     }
 
-    pub fn scroll_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+    pub fn scroll_up(&mut self, amount: u16) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(amount);
         self.auto_follow = false;
     }
 

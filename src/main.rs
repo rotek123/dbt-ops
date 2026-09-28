@@ -233,28 +233,38 @@ fn run_app<B: ratatui::backend::Backend>(
             }
         }
 
-        if event::poll(Duration::from_millis(50))?
-            && let Event::Key(key) = event::read()?
-        {
-            if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-                app.should_quit = true;
-                continue;
-            }
+        if event::poll(Duration::from_millis(50))? {
+            match event::read()? {
+                Event::Key(key) => {
+                    if key.code == KeyCode::Char('c')
+                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                    {
+                        app.should_quit = true;
+                        continue;
+                    }
 
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-                KeyCode::Tab => app.next_step(),
-                KeyCode::BackTab => app.prev_step(),
-                KeyCode::Left | KeyCode::Char('h') => app.scroll_left(),
-                KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
-                KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
-                KeyCode::Right | KeyCode::Char('l') => app.scroll_right(),
-                KeyCode::Char('H') | KeyCode::Home => app.jump_to_top(),
-                KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
-                KeyCode::Char('d') => app.toggle_log_mode(),
-                KeyCode::Char('r') => {
-                    // Force refresh not implemented for now since we have interval polling
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+                        KeyCode::Tab => app.next_step(),
+                        KeyCode::BackTab => app.prev_step(),
+                        KeyCode::Left | KeyCode::Char('h') => app.scroll_left(),
+                        KeyCode::Down | KeyCode::Char('j') => app.scroll_down(1),
+                        KeyCode::Up | KeyCode::Char('k') => app.scroll_up(1),
+                        KeyCode::Right | KeyCode::Char('l') => app.scroll_right(),
+                        KeyCode::Char('H') | KeyCode::Home => app.jump_to_top(),
+                        KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
+                        KeyCode::Char('d') => app.toggle_log_mode(),
+                        KeyCode::Char('r') => {
+                            // Force refresh not implemented for now since we have interval polling
+                        }
+                        _ => {}
+                    }
                 }
+                Event::Mouse(mouse) => match mouse.kind {
+                    crossterm::event::MouseEventKind::ScrollDown => app.scroll_down(3),
+                    crossterm::event::MouseEventKind::ScrollUp => app.scroll_up(3),
+                    _ => {}
+                },
                 _ => {}
             }
         }
