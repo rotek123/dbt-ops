@@ -146,7 +146,7 @@ fn render_logs(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_footer(f: &mut Frame, area: Rect) {
-    let footer_text = " [q/Esc] Quit | [Tab/Shift+Tab] Next/Prev Step | [hjkl/Arrows] Scroll | H: Jump to Top | G: Jump to Bottom | [d] Toggle Info/Debug Logs | r: Refresh Now ";
+    let footer_text = " [q/Esc] Quit | [Tab/Shift+Tab] Next/Prev Step | [hjkl/Arrows] Scroll | [H] Jump to Top | [G] Jump to Bottom | [d] Toggle Info/Debug Logs | [r] Refresh Now ";
     let block = Block::default().borders(Borders::ALL);
     let paragraph = Paragraph::new(footer_text)
         .block(block)
