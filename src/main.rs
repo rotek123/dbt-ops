@@ -23,7 +23,7 @@ use api::{ApiClient, Run};
 use app::App;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None, arg_required_else_help = true)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -74,6 +74,7 @@ enum Commands {
 enum AppEvent {
     Tick,
     RunUpdate(Box<Result<Run>>),
+    DashboardUpdate(Box<Result<Vec<Run>>>),
 }
 
 fn main() -> Result<()> {
@@ -97,10 +98,6 @@ fn main() -> Result<()> {
                 return Ok(());
             }
         }
-    } else if cli.run_id.is_none() && cli.job.is_none() {
-        // Fallback safety (clap arg_required_else_help usually catches this unless user passes just --interval)
-        eprintln!("Error: You must specify either --run-id or --job to launch the TUI log viewer.");
-        std::process::exit(1);
     }
 
     // TUI setup
@@ -153,13 +150,12 @@ fn run_app<B: ratatui::backend::Backend>(
     interval: u64,
 ) -> Result<()> {
     let (tx, rx) = mpsc::channel();
+    let (cmd_tx, cmd_rx) = mpsc::channel::<Option<i64>>();
     let tick_rate = Duration::from_millis(250);
     let poll_interval = Duration::from_secs(interval);
 
     // Polling thread
     let tx_clone = tx.clone();
-
-    // We clone the things we need to pass into the thread
     let api_client_clone = api_client.clone();
 
     thread::spawn(move || {
@@ -167,34 +163,59 @@ fn run_app<B: ratatui::backend::Backend>(
         let mut resolved_run_id = opt_run_id;
 
         loop {
+            if let Ok(new_run_id) = cmd_rx.try_recv() {
+                resolved_run_id = new_run_id;
+                last_poll = Instant::now() - poll_interval; // force immediate poll
+            }
+
             if last_poll.elapsed() >= poll_interval {
-                let res = if let Some(id) = resolved_run_id {
-                    api_client_clone.get_run(id)
+                if let Some(id) = resolved_run_id {
+                    let res = api_client_clone.get_run(id);
+                    let is_terminal = match &res {
+                        Ok(run) => run.status == 10 || run.status == 20 || run.status == 30, // Success, Error, Cancelled
+                        Err(_) => false,
+                    };
+                    if tx_clone.send(AppEvent::RunUpdate(Box::new(res))).is_err() {
+                        break;
+                    }
+                    if is_terminal {
+                        // In run view, if terminal we could break, but user might press Esc to go back to dashboard.
+                        // Actually, if we break, the polling thread dies. Let's just NOT break, but maybe stop polling?
+                        // For simplicity, let's keep polling or just sleep.
+                        // We will just not update last_poll so it keeps hitting if we don't change logic,
+                        // wait, if we don't break, it'll poll repeatedly? No, last_poll is updated.
+                        // Let's just let it poll or maybe we shouldn't break so we can return to dashboard.
+                    }
                 } else if let Some(j_id) = opt_job_id {
-                    match api_client_clone.get_latest_run(j_id) {
+                    let res = api_client_clone.get_latest_run(j_id);
+                    match &res {
                         Ok(run) => {
                             resolved_run_id = Some(run.id);
-                            Ok(run)
+                            if tx_clone
+                                .send(AppEvent::RunUpdate(Box::new(Ok(run.clone()))))
+                                .is_err()
+                            {
+                                break;
+                            }
                         }
-                        Err(e) => Err(e),
+                        Err(e) => {
+                            let _ = tx_clone.send(AppEvent::RunUpdate(Box::new(Err(
+                                anyhow::anyhow!("Error: {}", e),
+                            ))));
+                        }
                     }
                 } else {
-                    Err(anyhow::anyhow!("Neither run_id nor job_id was provided"))
-                };
-
-                let is_terminal = match &res {
-                    Ok(run) => run.status == 10 || run.status == 20 || run.status == 30, // Success, Error, Cancelled
-                    Err(_) => false,
-                };
-
-                if tx_clone.send(AppEvent::RunUpdate(Box::new(res))).is_err() {
-                    break;
+                    // Dashboard mode
+                    let res = api_client_clone.list_runs(20, None);
+                    if tx_clone
+                        .send(AppEvent::DashboardUpdate(Box::new(res)))
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
+
                 last_poll = Instant::now();
-
-                if is_terminal {
-                    break;
-                }
             }
             thread::sleep(Duration::from_millis(100));
         }
@@ -229,6 +250,12 @@ fn run_app<B: ratatui::backend::Backend>(
                         // Ignore errors for now, or display them in UI
                     }
                 },
+                AppEvent::DashboardUpdate(boxed_res) => match *boxed_res {
+                    Ok(runs) => {
+                        app.runs = runs;
+                    }
+                    Err(_e) => {}
+                },
                 AppEvent::Tick => {}
             }
         }
@@ -243,26 +270,61 @@ fn run_app<B: ratatui::backend::Backend>(
                         continue;
                     }
 
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-                        KeyCode::Tab => app.next_step(),
-                        KeyCode::BackTab => app.prev_step(),
-                        KeyCode::Left | KeyCode::Char('h') => app.scroll_left(),
-                        KeyCode::Down | KeyCode::Char('j') => app.scroll_down(1),
-                        KeyCode::Up | KeyCode::Char('k') => app.scroll_up(1),
-                        KeyCode::Right | KeyCode::Char('l') => app.scroll_right(),
-                        KeyCode::Char('H') | KeyCode::Home => app.jump_to_top(),
-                        KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
-                        KeyCode::Char('d') => app.toggle_log_mode(),
-                        KeyCode::Char('r') => {
-                            // Force refresh not implemented for now since we have interval polling
+                    match app.state {
+                        app::AppState::Dashboard => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+                            KeyCode::Down | KeyCode::Char('j') => app.dashboard_next(),
+                            KeyCode::Up | KeyCode::Char('k') => app.dashboard_prev(),
+                            KeyCode::Enter if !app.runs.is_empty() => {
+                                let selected_run = &app.runs[app.dashboard_selected_idx];
+                                let _ = cmd_tx.send(Some(selected_run.id));
+                                app.state = app::AppState::RunView;
+                            }
+                            _ => {}
+                        },
+                        app::AppState::RunView => {
+                            match key.code {
+                                KeyCode::Char('q') => app.should_quit = true,
+                                KeyCode::Esc => {
+                                    app.state = app::AppState::Dashboard;
+                                    let _ = cmd_tx.send(None);
+                                }
+                                KeyCode::Tab => app.next_step(),
+                                KeyCode::BackTab => app.prev_step(),
+                                KeyCode::Left | KeyCode::Char('h') => app.scroll_left(),
+                                KeyCode::Down | KeyCode::Char('j') => app.scroll_down(1),
+                                KeyCode::Up | KeyCode::Char('k') => app.scroll_up(1),
+                                KeyCode::Right | KeyCode::Char('l') => app.scroll_right(),
+                                KeyCode::Char('H') | KeyCode::Home => app.jump_to_top(),
+                                KeyCode::Char('G') | KeyCode::End => app.jump_to_bottom(),
+                                KeyCode::Char('d') => app.toggle_log_mode(),
+                                KeyCode::Char('r') => {
+                                    // Force refresh not implemented for now since we have interval polling
+                                }
+                                _ => {}
+                            }
                         }
-                        _ => {}
                     }
                 }
                 Event::Mouse(mouse) => match mouse.kind {
-                    crossterm::event::MouseEventKind::ScrollDown => app.scroll_down(3),
-                    crossterm::event::MouseEventKind::ScrollUp => app.scroll_up(3),
+                    crossterm::event::MouseEventKind::ScrollDown => {
+                        if app.state == app::AppState::RunView {
+                            app.scroll_down(3)
+                        } else {
+                            app.dashboard_next();
+                            app.dashboard_next();
+                            app.dashboard_next();
+                        }
+                    }
+                    crossterm::event::MouseEventKind::ScrollUp => {
+                        if app.state == app::AppState::RunView {
+                            app.scroll_up(3)
+                        } else {
+                            app.dashboard_prev();
+                            app.dashboard_prev();
+                            app.dashboard_prev();
+                        }
+                    }
                     _ => {}
                 },
                 _ => {}

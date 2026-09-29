@@ -1,14 +1,106 @@
-use crate::app::App;
+use crate::app::{App, AppState};
 use ansi_to_tui::IntoText;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState},
 };
 
 pub fn render(f: &mut Frame, app: &mut App) {
+    match app.state {
+        AppState::Dashboard => render_dashboard(f, app),
+        AppState::RunView => render_run_view(f, app),
+    }
+}
+
+fn render_dashboard(f: &mut Frame, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Header
+            Constraint::Min(10),   // Table
+            Constraint::Length(3), // Footer
+        ])
+        .split(f.area());
+
+    // Dashboard Header
+    let header_block = Block::default()
+        .title(" Recent dbt Runs ")
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::Cyan));
+    let title_par = Paragraph::new(" Select a run to view its logs...").block(header_block);
+    f.render_widget(title_par, chunks[0]);
+
+    // Dashboard Table
+    let header_cells = ["ID", "Job Name", "Status", "Duration"].iter().map(|h| {
+        Cell::from(*h).style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
+    });
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
+
+    let mut rows = Vec::new();
+    for run in &app.runs {
+        let job_name = run
+            .job
+            .as_ref()
+            .and_then(|j| j.name.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        let status_color = match run.status {
+            10 => Color::Green,    // Success
+            20 => Color::Red,      // Error
+            30 => Color::DarkGray, // Cancelled
+            _ => Color::White,
+        };
+
+        let row_style = Style::default().fg(status_color);
+
+        let cells = vec![
+            Cell::from(run.id.to_string()),
+            Cell::from(job_name),
+            Cell::from(run.status_humanized.clone()).style(row_style),
+            Cell::from(
+                run.duration_humanized
+                    .clone()
+                    .unwrap_or_else(|| "".to_string()),
+            ),
+        ];
+        rows.push(Row::new(cells));
+    }
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(10),
+            Constraint::Percentage(50),
+            Constraint::Length(15),
+            Constraint::Length(25),
+        ],
+    )
+    .header(header)
+    .block(Block::default().borders(Borders::ALL).title(" Runs "))
+    .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    .highlight_symbol(">> ");
+
+    let mut state = TableState::default();
+    state.select(Some(app.dashboard_selected_idx));
+    f.render_stateful_widget(table, chunks[1], &mut state);
+
+    // Dashboard Footer
+    let footer_text = " [q/Esc] Quit | [Up/Down] Navigate | [Enter] View Logs ";
+    let footer_block = Block::default().borders(Borders::ALL);
+    let footer_par = Paragraph::new(footer_text)
+        .block(footer_block)
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(footer_par, chunks[2]);
+}
+
+fn render_run_view(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

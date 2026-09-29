@@ -6,7 +6,16 @@ pub enum LogMode {
     Debug,
 }
 
+#[derive(PartialEq)]
+pub enum AppState {
+    Dashboard,
+    RunView,
+}
+
 pub struct App {
+    pub state: AppState,
+    pub runs: Vec<Run>,
+    pub dashboard_selected_idx: usize,
     pub run: Option<Run>,
     pub selected_step_idx: usize,
     pub scroll_offset: u16,
@@ -19,6 +28,9 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         Self {
+            state: AppState::Dashboard,
+            runs: Vec::new(),
+            dashboard_selected_idx: 0,
             run: None,
             selected_step_idx: 0,
             scroll_offset: 0,
@@ -106,5 +118,16 @@ impl App {
         } else {
             self.log_mode = LogMode::Info;
         }
+    }
+
+    pub fn dashboard_next(&mut self) {
+        if !self.runs.is_empty() {
+            self.dashboard_selected_idx =
+                (self.dashboard_selected_idx + 1).min(self.runs.len() - 1);
+        }
+    }
+
+    pub fn dashboard_prev(&mut self) {
+        self.dashboard_selected_idx = self.dashboard_selected_idx.saturating_sub(1);
     }
 }
