@@ -20,7 +20,7 @@ use std::{
 };
 
 use api::{ApiClient, Run};
-use app::App;
+use app::{App, AppState};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -115,7 +115,10 @@ fn main() -> Result<()> {
         original_hook(panic);
     }));
 
-    let app = App::new();
+    let mut app = App::new();
+    if cli.run_id.is_some() || cli.job.is_some() {
+        app.state = AppState::RunView;
+    }
     let res = run_app(
         &mut terminal,
         app,
@@ -161,10 +164,14 @@ fn run_app<B: ratatui::backend::Backend>(
     thread::spawn(move || {
         let mut last_poll = Instant::now() - poll_interval; // Poll immediately
         let mut resolved_run_id = opt_run_id;
+        let mut active_job_id = opt_job_id;
 
         loop {
             if let Ok(new_run_id) = cmd_rx.try_recv() {
                 resolved_run_id = new_run_id;
+                if new_run_id.is_none() {
+                    active_job_id = None;
+                }
                 last_poll = Instant::now() - poll_interval; // force immediate poll
             }
 
@@ -186,7 +193,7 @@ fn run_app<B: ratatui::backend::Backend>(
                         // wait, if we don't break, it'll poll repeatedly? No, last_poll is updated.
                         // Let's just let it poll or maybe we shouldn't break so we can return to dashboard.
                     }
-                } else if let Some(j_id) = opt_job_id {
+                } else if let Some(j_id) = active_job_id {
                     let res = api_client_clone.get_latest_run(j_id);
                     match &res {
                         Ok(run) => {
