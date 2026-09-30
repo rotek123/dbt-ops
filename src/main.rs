@@ -2,6 +2,7 @@ mod api;
 mod app;
 mod errors;
 mod list;
+mod profiles;
 mod ui;
 
 use anyhow::Result;
@@ -55,6 +56,17 @@ enum Commands {
         job: Option<i64>,
     },
 
+    /// Show profiles and targets from a local dbt profiles.yml
+    Profiles {
+        /// Directory containing profiles.yml (defaults to DBT_PROFILES_DIR, ./, then ~/.dbt)
+        #[arg(long)]
+        profiles_dir: Option<std::path::PathBuf>,
+
+        /// Only show this profile
+        #[arg(long)]
+        profile: Option<String>,
+    },
+
     /// Fetch and analyze errors or warnings for a specific run
     Errors {
         /// The Run ID to analyze
@@ -80,6 +92,15 @@ enum AppEvent {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // profiles.yml is local, so this must not require dbt Cloud credentials
+    if let Some(Commands::Profiles {
+        profiles_dir,
+        profile,
+    }) = &cli.command
+    {
+        return profiles::print_profiles(profiles_dir.as_deref(), profile.as_deref());
+    }
+
     let api_client = ApiClient::new()?;
 
     // Handle subcommands
@@ -97,6 +118,7 @@ fn main() -> Result<()> {
                 errors::print_run_errors(&api_client, run_id, include_warnings, warnings_only)?;
                 return Ok(());
             }
+            Commands::Profiles { .. } => unreachable!("handled before API client setup"),
         }
     }
 

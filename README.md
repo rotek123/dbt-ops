@@ -67,6 +67,17 @@ dbt-ops --run-id 52843050
 - `G` or `End`: Jump to the bottom of the logs and resume auto-following
 - `r`: Refresh now
 
+### 3. Inspecting `profiles.yml` (`profiles`)
+List the profiles and targets in a local dbt `profiles.yml`. This works offline and does not need dbt Cloud credentials. Only profile names, targets and adapter types are read; credentials are never parsed or printed.
+```bash
+dbt-ops profiles
+```
+The file is located using dbt's precedence: `--profiles-dir`, then `DBT_PROFILES_DIR`, then `./profiles.yml`, then `~/.dbt/profiles.yml`.
+
+**Options:**
+- `--profiles-dir <DIR>`: Directory containing `profiles.yml`.
+- `--profile <NAME>`: Only show a single profile.
+
 ## Architecture
 
 The TUI relies on a multi-threaded architecture to ensure the UI remains highly responsive while waiting for network requests.
