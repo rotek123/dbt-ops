@@ -1,6 +1,6 @@
 # dbt-ops
 
-**dbt-ops** is a Rust-based CLI and Terminal User Interface (TUI) for operating and monitoring dbt Cloud. It leverages the [dbt Cloud API](https://docs.getdbt.com/dbt-cloud/api-v3?version=2#/) to provide real-time log streaming, run history listing, and administrative insights directly in your terminal.
+**dbt-ops** is a Rust-based CLI and Terminal User Interface (TUI) for operating and monitoring dbt Cloud, plus local dbt Core helpers such as `profiles`. It leverages the [dbt Cloud API](https://docs.getdbt.com/dbt-cloud/api-v3?version=2#/) to provide real-time log streaming, run history listing, and administrative insights directly in your terminal.
 
 ## Features
 
@@ -72,7 +72,13 @@ List the profiles and targets in a local dbt `profiles.yml`. This works offline 
 ```bash
 dbt-ops profiles
 ```
-The file is located using dbt's precedence: `--profiles-dir`, then `DBT_PROFILES_DIR`, then `./profiles.yml`, then `~/.dbt/profiles.yml`.
+```text
+profiles.yml: /Users/me/.dbt/profiles.yml
+PROFILE      TARGET  TYPE      DEFAULT
+my_project   dev     bigquery  *
+my_project   prod    bigquery
+```
+The file is located using dbt's precedence: `--profiles-dir`, then `DBT_PROFILES_DIR`, then `./profiles.yml`, then `~/.dbt/profiles.yml`. A `target:` set with Jinja (e.g. `env_var`) is not rendered, so no default is marked.
 
 **Options:**
 - `--profiles-dir <DIR>`: Directory containing `profiles.yml`.
