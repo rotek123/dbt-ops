@@ -92,35 +92,28 @@ enum AppEvent {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // profiles.yml is local, so this must not require dbt Cloud credentials
-    if let Some(Commands::Profiles {
-        profiles_dir,
-        profile,
-    }) = &cli.command
-    {
-        return profiles::print_profiles(profiles_dir.as_deref(), profile.as_deref());
+    // Only commands that talk to dbt Cloud create an API client
+    match cli.command {
+        Some(Commands::Profiles {
+            profiles_dir,
+            profile,
+        }) => return profiles::print_profiles(profiles_dir.as_deref(), profile.as_deref()),
+        Some(Commands::List { limit, job }) => {
+            list::print_runs(&ApiClient::new()?, limit, job)?;
+            return Ok(());
+        }
+        Some(Commands::Errors {
+            run_id,
+            include_warnings,
+            warnings_only,
+        }) => {
+            errors::print_run_errors(&ApiClient::new()?, run_id, include_warnings, warnings_only)?;
+            return Ok(());
+        }
+        None => {}
     }
 
     let api_client = ApiClient::new()?;
-
-    // Handle subcommands
-    if let Some(command) = cli.command {
-        match command {
-            Commands::List { limit, job } => {
-                list::print_runs(&api_client, limit, job)?;
-                return Ok(());
-            }
-            Commands::Errors {
-                run_id,
-                include_warnings,
-                warnings_only,
-            } => {
-                errors::print_run_errors(&api_client, run_id, include_warnings, warnings_only)?;
-                return Ok(());
-            }
-            Commands::Profiles { .. } => unreachable!("handled before API client setup"),
-        }
-    }
 
     // TUI setup
     enable_raw_mode()?;
